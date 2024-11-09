@@ -43,8 +43,8 @@ class Game:
             if unit['type'] == 'base' or unit['status'] == 'dead':
                 continue
 
-            # For the first 30 seconds, move randomly and try to gather in all directions
-            if elapsed_time < 30:
+            # For the first 20 seconds, move randomly and try to gather in all directions
+            if elapsed_time < 20:
                 direction = self.get_random_direction(unit)
                 if direction:
                     commands.append({"command": "MOVE", "unit": unit_id, "dir": direction})
@@ -54,12 +54,16 @@ class Game:
                     commands.append({"command": "GATHER", "unit": unit_id, "dir": gather_direction})
             
             else:
-                # After 30 seconds, return to base and drop resources
+                # After 20 seconds, return to base and drop resources
                 if self.base_location and (unit['x'], unit['y']) != self.base_location:
                     # Move towards the base
                     direction = self.get_move_direction(unit, self.base_location)
                     if direction:
                         commands.append({"command": "MOVE", "unit": unit_id, "dir": direction})
+                elif self.base_location and (unit['x'], unit['y']) == self.base_location:
+                    # Drop off resources and reset the timer
+                    commands.append({"command": "DROP", "unit": unit_id})
+                    self.start_time = time.time()  # Reset the start time to restart elapsed_time
 
         return json.dumps({"commands": commands}, separators=(',', ':')) + '\n'
 
