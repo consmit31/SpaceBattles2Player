@@ -20,6 +20,7 @@ class NetworkHandler(ss.StreamRequestHandler):
                 break
             json_data = json.loads(data)
             response = game.get_move(json_data).encode()
+            print(response)
             self.wfile.write(response)
 
 
@@ -27,11 +28,11 @@ class Game:
     def __init__(self):
         self.base_location = None
         self.resource_list = []  # Track visible resources
-        self.directions = {'N': (-1, 0), 'S': (1, 0), 'E': (0, 1), 'W': (0, -1)}
+        self.directions = {'N', 'S', 'E', 'W'}
         self.start_time = time.time()
 
     def get_move(self, json_data):
-        self.update_resources(json_data.get('tile_updates', []))
+        print("Looping!")
         units = json_data.get('unit_updates', [])
         self.set_base_location(units)
         commands = []
@@ -39,17 +40,20 @@ class Game:
         elapsed_time = time.time() - self.start_time
 
         for unit in units:
+            
+            
             if unit['type'] == 'base' or unit['status'] == 'dead':
                 continue
 
             # For the first 10 seconds, move randomly and try to gather in all directions
             if elapsed_time < 10:
+                
                 direction = self.get_random_direction(unit)
                 if direction:
                     commands.append({"command": "MOVE", "unit": unit['id'], "dir": direction})
                 
                 # Attempt to gather resources in all directions
-                for gather_direction in self.directions.keys():
+                for gather_direction in self.directions:
                     commands.append({"command": "GATHER", "unit": unit['id'], "dir": gather_direction})
             
             else:
@@ -57,7 +61,7 @@ class Game:
                 if self.base_location:
                     if (unit['x'], unit['y']) == self.base_location:
                         # If at the base, drop resources
-                        commands.append({"command": "DROP", "unit": unit['id'], "dir": ""})
+                        print("yo")
                     else:
                         # Move towards the base
                         direction = self.get_move_direction(unit, self.base_location)
@@ -66,16 +70,6 @@ class Game:
 
         return json.dumps({"commands": commands}, separators=(',', ':')) + '\n'
 
-    def update_resources(self, tile_updates):
-        """Update the resource list with any newly visible resources."""
-        for tile in tile_updates:
-            if tile.get('resources') and tile.get('visible', False):
-                resource_location = (tile['x'], tile['y'])
-                if resource_location not in [res['location'] for res in self.resource_list]:
-                    self.resource_list.append({
-                        'location': resource_location,
-                        'resource': tile['resources']
-                    })
 
     def set_base_location(self, units):
         """Locate and set the base if not yet set."""
@@ -87,14 +81,9 @@ class Game:
 
     def get_random_direction(self, unit):
         """Select a random available direction for movement."""
-        random_directions = list(self.directions.items())
-        random.shuffle(random_directions)
-
-        for direction, (dy, dx) in random_directions:
-            nx, ny = unit['x'] + dx, unit['y'] + dy
-            if 0 <= nx < 10 and 0 <= ny < 10:  # Assuming a 10x10 grid for simplicity
-                return direction
-        return None
+        direction = ['N', 'S', 'E', 'W']
+        choice = random.choice(direction)
+        return choice
 
     def get_move_direction(self, unit, target):
         """Calculate the direction for the unit to move toward the target."""
