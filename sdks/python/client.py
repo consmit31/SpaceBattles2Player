@@ -63,10 +63,67 @@ class Game:
             self.map[y][x] = Tile(
                 x=x,
                 y=y,
-                blocked=tile['blocked'],
+                blocked=tile.get('blocked', False),  # Default to False if 'blocked' is missing
                 resources=tile.get('resources'),
-                visible=tile['visible']
+                visible=tile.get('visible', False)
             )
+
+    def a_star_pathfind(self, start, goal):
+        """A* pathfinding algorithm to find path from start to goal around blocked tiles."""
+        open_set = [(0, start)]
+        came_from = {}
+        g_score = {start: 0}
+        f_score = {start: self.heuristic(start, goal)}
+        visited = set()
+
+        while open_set:
+            _, current = heapq.heappop(open_set)
+            if current == goal:
+                return self.reconstruct_path(came_from, current)
+
+            visited.add(current)
+
+            for direction in self.directions.values():
+                neighbor = (current[0] + direction[1], current[1] + direction[0])
+                x, y = neighbor
+                if 0 <= x < self.map_width and 0 <= y < self.map_height:
+                    tile = self.map[y][x]
+                    if tile and not tile.blocked and neighbor not in visited:
+                        tentative_g_score = g_score[current] + 1
+
+                        if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                            came_from[neighbor] = current
+                            g_score[neighbor] = tentative_g_score
+                            f_score[neighbor] = tentative_g_score + self.heuristic(neighbor, goal)
+                            heapq.heappush(open_set, (f_score[neighbor], neighbor))
+
+        return None  # No path found
+
+    def heuristic(self, a, b):
+        """Manhattan distance heuristic for A* pathfinding."""
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    def reconstruct_path(self, came_from, current):
+        """Reconstruct path from A* pathfinding result."""
+        path = []
+        while current in came_from:
+            path.append(current)
+            current = came_from[current]
+        path.reverse()
+        return path
+
+    def get_move_direction(self, unit, target):
+        """Get the direction for the unit to move towards the next step in the path."""
+        unit_x, unit_y = unit['x'], unit['y']
+        path = self.a_star_pathfind((unit_x, unit_y), target)
+        if path and len(path) > 1:
+            next_step = path[1]
+            dx = next_step[0] - unit_x
+            dy = next_step[1] - unit_y
+            for direction, (d_y, d_x) in self.directions.items():
+                if dx == d_x and dy == d_y:
+                    return direction
+        return None
 
     def get_random_direction(self, unit):
         """Choose a random direction for wandering."""
@@ -80,21 +137,6 @@ class Game:
                 tile = self.map[ny][nx]
                 if tile and not tile.blocked:
                     return direction
-        return None
-
-    def get_move_direction(self, unit, target):
-        """Get the direction for the unit to move towards the target."""
-        unit_x, unit_y = unit['x'], unit['y']
-        target_x, target_y = target
-
-        if target_y < unit_y:
-            return 'N'
-        elif target_y > unit_y:
-            return 'S'
-        elif target_x > unit_x:
-            return 'E'
-        elif target_x < unit_x:
-            return 'W'
         return None
 
     def get_move(self, json_data):
@@ -137,15 +179,6 @@ class Game:
                     direction = self.get_random_direction(unit)
                     if direction:
                         commands.append({"command": "MOVE", "unit": unit_id, "dir": direction})
-
-            for direction, (dy, dx) in self.directions.items():
-                nx, ny = unit['x'] + dx, unit['y'] + dy
-                if 0 <= nx < self.map_width and 0 <= ny < self.map_height:
-                    tile = self.map[ny][nx]
-                    if tile and tile.resources:
-                        commands.append({"command": "GATHER", "unit": unit_id, "dir": direction})
-                        self.units[unit_id]['state'] = 'return'
-                        break
 
         response = json.dumps({"commands": commands}, separators=(',', ':')) + '\n'
         return response
