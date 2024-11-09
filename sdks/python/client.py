@@ -29,42 +29,48 @@ class Game:
         self.resource_list = []  # Track visible resources
         self.directions = {'N', 'S', 'E', 'W'}
         self.start_time = time.time()
+        self.units = {}  # Store unit states persistently
 
     def get_move(self, json_data):
-        units = json_data.get('unit_updates', [])
-        self.set_base_location(units)
+        unit_updates = json_data.get('unit_updates', [])
+        self.set_base_location(unit_updates)
+        self.update_units(unit_updates)  # Update existing units or add new ones
         commands = []
 
         elapsed_time = time.time() - self.start_time
 
-        for unit in units:
-            
-            
+        for unit_id, unit in self.units.items():
             if unit['type'] == 'base' or unit['status'] == 'dead':
                 continue
 
-            # For the first 10 seconds, move randomly and try to gather in all directions
-            if elapsed_time < 10:
-                
+            # For the first 30 seconds, move randomly and try to gather in all directions
+            if elapsed_time < 30:
                 direction = self.get_random_direction(unit)
                 if direction:
-                    commands.append({"command": "MOVE", "unit": unit['id'], "dir": direction})
+                    commands.append({"command": "MOVE", "unit": unit_id, "dir": direction})
                 
                 # Attempt to gather resources in all directions
                 for gather_direction in self.directions:
-                    commands.append({"command": "GATHER", "unit": unit['id'], "dir": gather_direction})
+                    commands.append({"command": "GATHER", "unit": unit_id, "dir": gather_direction})
             
             else:
-                # After 10 seconds, return to base and drop resources
-                if self.base_location:
-                    if (unit['x'], unit['y']) != self.base_location:
-                        # Move towards the base
-                        direction = self.get_move_direction(unit, self.base_location)
-                        if direction:
-                            commands.append({"command": "MOVE", "unit": unit['id'], "dir": direction})
+                # After 30 seconds, return to base and drop resources
+                if self.base_location and (unit['x'], unit['y']) != self.base_location:
+                    # Move towards the base
+                    direction = self.get_move_direction(unit, self.base_location)
+                    if direction:
+                        commands.append({"command": "MOVE", "unit": unit_id, "dir": direction})
 
         return json.dumps({"commands": commands}, separators=(',', ':')) + '\n'
 
+    def update_units(self, unit_updates):
+        """Update the state of units with new data from unit_updates."""
+        # Update units with new positions and states
+        for update in unit_updates:
+            unit_id = update['id']
+            self.units[unit_id] = update  # Store the latest information for each unit
+
+        # Retain previous state for units not in the current update
 
     def set_base_location(self, units):
         """Locate and set the base if not yet set."""
@@ -76,9 +82,7 @@ class Game:
 
     def get_random_direction(self, unit):
         """Select a random available direction for movement."""
-        direction = ['N', 'S', 'E', 'W']
-        choice = random.choice(direction)
-        return choice
+        return random.choice(['N', 'S', 'E', 'W'])
 
     def get_move_direction(self, unit, target):
         """Calculate the direction for the unit to move toward the target."""
