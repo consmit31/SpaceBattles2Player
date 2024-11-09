@@ -20,7 +20,6 @@ class NetworkHandler(ss.StreamRequestHandler):
                 break
             json_data = json.loads(data)
             response = game.get_move(json_data).encode()
-            print(response)
             self.wfile.write(response)
 
 
@@ -32,7 +31,6 @@ class Game:
         self.start_time = time.time()
 
     def get_move(self, json_data):
-        print("Looping!")
         units = json_data.get('unit_updates', [])
         self.set_base_location(units)
         commands = []
@@ -59,10 +57,7 @@ class Game:
             else:
                 # After 10 seconds, return to base and drop resources
                 if self.base_location:
-                    if (unit['x'], unit['y']) == self.base_location:
-                        # If at the base, drop resources
-                        print("yo")
-                    else:
+                    if (unit['x'], unit['y']) != self.base_location:
                         # Move towards the base
                         direction = self.get_move_direction(unit, self.base_location)
                         if direction:
