@@ -161,7 +161,7 @@ class Game:
                     continue
                 self.units[unit_id]['state'] = 'wander'
 
-            elif unit_state == 'wander':
+            elif unit_state == 'wander' and unit['resource'] == 0:
                 # Check adjacent tiles for resources
                 resource_found = False
                 for direction, (dy, dx) in self.directions.items():
